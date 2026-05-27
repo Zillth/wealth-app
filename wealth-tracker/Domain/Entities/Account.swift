@@ -52,55 +52,52 @@ final class AccountModel {
     var creditUsed: Double
     var paymentDueDayOfMonth: Int
 
-    // Debit card
+    // Debit / Smart Cash
     var balance: Double
 
     // Loan / Borrow
     var principal: Double
     var remainingBalance: Double
-    var interestRate: Double
+    var interestRate: Double       // also reused as yearly gain rate for Smart Cash
     var monthlyPayment: Double
     var nextPaymentDate: Date?
     var isOwedToMe: Bool
 
-    // Investment
+    // Legacy single-position investment fields (unused — positions array used instead)
     var ticker: String
     var shares: Double
     var purchasePrice: Double
     var currentPrice: Double
 
-    @Relationship(deleteRule: .cascade)
-    var installmentPlans: [InstallmentPlanModel]
-
-    @Relationship(deleteRule: .cascade)
-    var subscriptions: [SubscriptionModel]
-
-    @Relationship(deleteRule: .cascade)
-    var positions: [StockPosition]
+    @Relationship(deleteRule: .cascade) var installmentPlans: [InstallmentPlanModel]
+    @Relationship(deleteRule: .cascade) var subscriptions: [SubscriptionModel]
+    @Relationship(deleteRule: .cascade) var positions: [StockPosition]
 
     init(name: String, bankName: String, accountTypeRaw: String) {
-        self.id = UUID()
-        self.name = name
-        self.bankName = bankName
-        self.accountTypeRaw = accountTypeRaw
-        self.createdAt = Date()
-        self.creditLimit = 0
-        self.creditUsed = 0
+        self.id                  = UUID()
+        self.name                = name
+        self.bankName            = bankName
+        self.accountTypeRaw      = accountTypeRaw
+        self.createdAt           = Date()
+        self.creditLimit         = 0
+        self.creditUsed          = 0
         self.paymentDueDayOfMonth = 1
-        self.balance = 0
-        self.principal = 0
-        self.remainingBalance = 0
-        self.interestRate = 0
-        self.monthlyPayment = 0
-        self.isOwedToMe = false
-        self.ticker = ""
-        self.shares = 0
-        self.purchasePrice = 0
-        self.currentPrice = 0
-        self.installmentPlans = []
-        self.subscriptions = []
-        self.positions = []
+        self.balance             = 0
+        self.principal           = 0
+        self.remainingBalance    = 0
+        self.interestRate        = 0
+        self.monthlyPayment      = 0
+        self.isOwedToMe          = false
+        self.ticker              = ""
+        self.shares              = 0
+        self.purchasePrice       = 0
+        self.currentPrice        = 0
+        self.installmentPlans    = []
+        self.subscriptions       = []
+        self.positions           = []
     }
+
+    // MARK: - Computed
 
     var accountType: AccountTypeEnum {
         AccountTypeEnum(rawValue: accountTypeRaw) ?? .debitCard
@@ -113,56 +110,36 @@ final class AccountModel {
         subscriptions.reduce(0)    { $0 + $1.monthlyAmount }
     }
 
+    // Investment
     var investmentTotalValue: Double { positions.reduce(0) { $0 + $1.totalValue } }
-    var investmentGainLoss: Double { positions.reduce(0) { $0 + $1.gainLoss } }
-    var investmentCostBasis: Double { positions.reduce(0) { $0 + $1.shares * $1.avgCost } }
+    var investmentGainLoss: Double   { positions.reduce(0) { $0 + $1.gainLoss   } }
+    var investmentCostBasis: Double  { positions.reduce(0) { $0 + $1.shares * $1.avgCost } }
     var investmentROI: Double {
         guard investmentCostBasis > 0 else { return 0 }
         return investmentGainLoss / investmentCostBasis
     }
 
-    // Smart Cash — reuses `balance` (amount) and `interestRate` (yearly rate as decimal, e.g. 0.15 = 15%)
+    // Smart Cash (reuses `balance` + `interestRate`)
     var smartCashYearlyGains: Double  { balance * interestRate }
     var smartCashMonthlyGains: Double { smartCashYearlyGains / 12 }
-}
 
-@Model
-final class SubscriptionModel {
-    var id: UUID
-    var serviceName: String
-    var monthlyAmount: Double
+    // MARK: - Spend mutations
 
-    init(serviceName: String, monthlyAmount: Double) {
-        self.id = UUID()
-        self.serviceName = serviceName
-        self.monthlyAmount = monthlyAmount
+    /// Applies a spend to this account (deducts from balance or increases credit used).
+    func applySpend(_ amount: Double) {
+        switch accountType {
+        case .creditCard:              creditUsed += amount
+        case .debitCard, .smartCash:   balance    -= amount
+        case .loan, .investment:       break
+        }
     }
-}
 
-@Model
-final class InstallmentPlanModel {
-    var id: UUID
-    var merchantName: String
-    var totalAmount: Double
-    var monthlyAmount: Double
-    var totalMonths: Int
-    var remainingMonths: Int
-    var nextPaymentDate: Date
-
-    init(
-        merchantName: String,
-        totalAmount: Double,
-        monthlyAmount: Double,
-        totalMonths: Int,
-        remainingMonths: Int,
-        nextPaymentDate: Date
-    ) {
-        self.id = UUID()
-        self.merchantName = merchantName
-        self.totalAmount = totalAmount
-        self.monthlyAmount = monthlyAmount
-        self.totalMonths = totalMonths
-        self.remainingMonths = remainingMonths
-        self.nextPaymentDate = nextPaymentDate
+    /// Reverses a previously applied spend (used on edit or delete).
+    func reverseSpend(_ amount: Double) {
+        switch accountType {
+        case .creditCard:              creditUsed -= amount
+        case .debitCard, .smartCash:   balance    += amount
+        case .loan, .investment:       break
+        }
     }
 }

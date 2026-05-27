@@ -5,7 +5,7 @@ import SwiftData
 struct wealth_trackerApp: App {
 
     init() {
-        // Navigation bar — cream background, dark-olive text & tint
+        // Navigation bar
         let nav = UINavigationBarAppearance()
         nav.configureWithOpaqueBackground()
         nav.backgroundColor          = UIColor(Color.appBackground)
@@ -17,6 +17,22 @@ struct wealth_trackerApp: App {
         UINavigationBar.appearance().compactAppearance    = nav
         UINavigationBar.appearance().tintColor            = UIColor(Color.appAccent)
 
+        // Tab bar
+        let tab = UITabBarAppearance()
+        tab.configureWithOpaqueBackground()
+        tab.backgroundColor = UIColor(Color.appBackground)
+        tab.shadowColor     = .clear
+        let item = UITabBarItemAppearance()
+        item.normal.iconColor           = UIColor(Color.appPrimary).withAlphaComponent(0.3)
+        item.normal.titleTextAttributes = [.foregroundColor: UIColor(Color.appPrimary).withAlphaComponent(0.3)]
+        item.selected.iconColor           = UIColor(Color.appPrimary)
+        item.selected.titleTextAttributes = [.foregroundColor: UIColor(Color.appPrimary)]
+        tab.stackedLayoutAppearance       = item
+        tab.inlineLayoutAppearance        = item
+        tab.compactInlineLayoutAppearance = item
+        UITabBar.appearance().standardAppearance   = tab
+        UITabBar.appearance().scrollEdgeAppearance = tab
+
         // List / Form table background
         UITableView.appearance().backgroundColor = UIColor(Color.appBackground)
     }
@@ -27,6 +43,8 @@ struct wealth_trackerApp: App {
             SubscriptionModel.self,
             InstallmentPlanModel.self,
             StockPosition.self,
+            BudgetCategory.self,
+            SpendEntry.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
